@@ -599,31 +599,42 @@
             const bounds = getBounds();
             if (!bounds) return;
 
-            const gridSize = 0.01; // Risoluzione griglia (gradi)
             const intensity = parseFloat(document.getElementById('intensitySlider').value);
             const radius = parseFloat(document.getElementById('radiusSlider').value);
             const opacity = parseFloat(document.getElementById('opacitySlider').value);
 
-            // Creazione canvas per heatmap
+            // Espandi bounds per evitare ritaglio dei cerchi
+            const expandedBounds = {
+                north: bounds.north + (radius / 111), // 1 grado ≈ 111 km
+                south: bounds.south - (radius / 111),
+                east: bounds.east + (radius / (111 * Math.cos(bounds.north * Math.PI / 180))),
+                west: bounds.west - (radius / (111 * Math.cos(bounds.north * Math.PI / 180)))
+            };
+
+            // Creazione canvas per heatmap con risoluzione adattiva
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             
-            const width = 800;
-            const height = 600;
+            // Risoluzione basata sul zoom e area
+            const mapZoom = map.getZoom();
+            const scaleFactor = Math.max(1, mapZoom / 8);
+            const width = Math.min(1200, 400 * scaleFactor);
+            const height = Math.min(900, 300 * scaleFactor);
+            
             canvas.width = width;
             canvas.height = height;
 
             const imageData = ctx.createImageData(width, height);
             const data = imageData.data;
 
-            // Interpolazione dei valori SQM
+            // Interpolazione dei valori SQM con gradiente radiale
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
-                    const lat = bounds.north - (y / height) * (bounds.north - bounds.south);
-                    const lng = bounds.west + (x / width) * (bounds.east - bounds.west);
+                    const lat = expandedBounds.north - (y / height) * (expandedBounds.north - expandedBounds.south);
+                    const lng = expandedBounds.west + (x / width) * (expandedBounds.east - expandedBounds.west);
                     
-                    const sqmValue = interpolateSQM(lat, lng, radius);
-                    const color = getSQMColor(sqmValue, intensity);
+                    const result = interpolateSQMWithGradient(lat, lng, radius);
+                    const color = getSQMColorWithAlpha(result.sqmValue, result.weight, intensity);
                     
                     const index = (y * width + x) * 4;
                     data[index] = color.r;     // Red
@@ -638,50 +649,54 @@
             // Conversione canvas in overlay Leaflet
             const imageUrl = canvas.toDataURL();
             heatmapLayer = L.imageOverlay(imageUrl, [
-                [bounds.south, bounds.west],
-                [bounds.north, bounds.east]
+                [expandedBounds.south, expandedBounds.west],
+                [expandedBounds.north, expandedBounds.east]
             ], { opacity: opacity }).addTo(map);
         }
 
-        // Interpolazione valore SQM per una posizione
-        function interpolateSQM(lat, lng, maxDistance) {
+        // Interpolazione valore SQM con gradiente radiale
+        function interpolateSQMWithGradient(lat, lng, maxDistance) {
             let weightedSum = 0;
             let totalWeight = 0;
+            let maxInfluence = 0;
 
             for (const point of sqmData) {
                 const distance = getDistance(lat, lng, point.latitude, point.longitude);
                 
-                if (distance < maxDistance) {
-                    const weight = 1 / (1 + distance); // Peso inversamente proporzionale alla distanza
-                    weightedSum += point.sqm_value * weight;
-                    totalWeight += weight;
+                if (distance <= maxDistance) {
+                    // Calcolo peso con gradiente radiale (funzione gaussiana)
+                    const normalizedDistance = distance / maxDistance;
+                    
+                    // Gradiente più fluido: forte al centro, sfuma verso i bordi
+                    const gaussianWeight = Math.exp(-3 * normalizedDistance * normalizedDistance);
+                    const distanceWeight = 1 / (1 + distance * 0.1);
+                    const finalWeight = gaussianWeight * distanceWeight;
+                    
+                    weightedSum += point.sqm_value * finalWeight;
+                    totalWeight += finalWeight;
+                    maxInfluence = Math.max(maxInfluence, gaussianWeight);
                 }
             }
 
-            return totalWeight > 0 ? weightedSum / totalWeight : null;
+            if (totalWeight > 0) {
+                return {
+                    sqmValue: weightedSum / totalWeight,
+                    weight: Math.min(1, maxInfluence) // Peso normalizzato per l'alpha
+                };
+            }
+            
+            return { sqmValue: null, weight: 0 };
         }
 
-        // Calcolo distanza tra due punti (km)
-        function getDistance(lat1, lng1, lat2, lng2) {
-            const R = 6371; // Raggio Terra in km
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLng = (lng2 - lng1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLng/2) * Math.sin(dLng/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
-        }
-
-        // Conversione valore SQM in colore
-        function getSQMColor(sqmValue, intensity) {
-            if (sqmValue === null) {
+        // Conversione valore SQM in colore con alpha variabile
+        function getSQMColorWithAlpha(sqmValue, weight, intensity) {
+            if (sqmValue === null || weight === 0) {
                 return { r: 0, g: 0, b: 0, a: 0 }; // Trasparente
             }
 
             let r, g, b;
-            const alpha = Math.min(255, intensity * 180);
-
+            
+            // Colori base più vividi per miglior contrasto
             if (sqmValue >= 21.5) {
                 // Eccellente - Blu scuro
                 r = 0; g = 0; b = 128;
@@ -699,6 +714,49 @@
                 r = 255; g = 128; b = 0;
             } else {
                 // Critica - Rosso
+                r = 255; g = 0; b = 0;
+            }
+
+            // Alpha basato su peso del gradiente e intensità
+            const baseAlpha = 180;
+            const alpha = Math.min(255, baseAlpha * weight * intensity);
+
+            return { r, g, b, a: alpha };
+        }
+
+        // Calcolo distanza tra due punti (km)
+        function getDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371; // Raggio Terra in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Conversione valore SQM in colore
+        function getSQMColor(sqmValue, intensity) {
+            // Funzione mantenuta per compatibilità markers
+            if (sqmValue === null) {
+                return { r: 0, g: 0, b: 0, a: 0 };
+            }
+
+            let r, g, b;
+            const alpha = Math.min(255, intensity * 180);
+
+            if (sqmValue >= 21.5) {
+                r = 0; g = 0; b = 128;
+            } else if (sqmValue >= 20.0) {
+                r = 0; g = 0; b = 255;
+            } else if (sqmValue >= 18.0) {
+                r = 0; g = 255; b = 0;
+            } else if (sqmValue >= 16.0) {
+                r = 255; g = 255; b = 0;
+            } else if (sqmValue >= 14.0) {
+                r = 255; g = 128; b = 0;
+            } else {
                 r = 255; g = 0; b = 0;
             }
 
@@ -751,20 +809,26 @@
             return 'Critica';
         }
 
-        // Calcolo bounds dei dati
+        // Calcolo bounds dei dati con padding intelligente
         function getBounds() {
             if (sqmData.length === 0) return null;
 
             const lats = sqmData.map(d => d.latitude);
             const lngs = sqmData.map(d => d.longitude);
 
-            const padding = 0.1; // Padding in gradi
+            // Padding adattivo basato sulla distribuzione dei punti
+            const latRange = Math.max(...lats) - Math.min(...lats);
+            const lngRange = Math.max(...lngs) - Math.min(...lngs);
+            
+            // Padding minimo 0.05°, massimo 0.3°, proporzionale alla distribuzione
+            const latPadding = Math.max(0.05, Math.min(0.3, latRange * 0.2));
+            const lngPadding = Math.max(0.05, Math.min(0.3, lngRange * 0.2));
             
             return {
-                north: Math.max(...lats) + padding,
-                south: Math.min(...lats) - padding,
-                east: Math.max(...lngs) + padding,
-                west: Math.min(...lngs) - padding
+                north: Math.max(...lats) + latPadding,
+                south: Math.min(...lats) - latPadding,
+                east: Math.max(...lngs) + lngPadding,
+                west: Math.min(...lngs) - lngPadding
             };
         }
 
