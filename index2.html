@@ -377,17 +377,26 @@
         
         <div class="control-group">
             <label>Intensità Heatmap</label>
-            <input type="range" class="control-input" id="intensitySlider" min="0.1" max="2" step="0.1" value="1">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="range" class="control-input" id="intensitySlider" min="0.1" max="2" step="0.1" value="1" style="flex: 1;">
+                <span id="intensityValue" style="color: #fff; font-weight: 600; min-width: 40px;">1.0</span>
+            </div>
         </div>
 
         <div class="control-group">
-            <label>Raggio Influenza (km)</label>
-            <input type="range" class="control-input" id="radiusSlider" min="1" max="50" step="1" value="15">
+            <label>Raggio Influenza</label>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="range" class="control-input" id="radiusSlider" min="1" max="50" step="1" value="15" style="flex: 1;">
+                <span id="radiusValue" style="color: #fff; font-weight: 600; min-width: 50px;">15 km</span>
+            </div>
         </div>
 
         <div class="control-group">
             <label>Opacità Overlay</label>
-            <input type="range" class="control-input" id="opacitySlider" min="0.1" max="1" step="0.1" value="0.7">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="range" class="control-input" id="opacitySlider" min="0.1" max="1" step="0.1" value="0.7" style="flex: 1;">
+                <span id="opacityValue" style="color: #fff; font-weight: 600; min-width: 40px;">70%</span>
+            </div>
         </div>
 
         <div class="control-group">
@@ -453,6 +462,7 @@
             initMap();
             loadSupabaseConfig();
             setupEventListeners();
+            initializeSliderValues(); // Inizializza i valori visualizzati
         });
 
         // Caricamento configurazione Supabase
@@ -855,12 +865,37 @@
 
         // Event listeners
         function setupEventListeners() {
-            document.getElementById('intensitySlider').addEventListener('input', updateHeatmap);
-            document.getElementById('radiusSlider').addEventListener('input', updateHeatmap);
-            document.getElementById('opacitySlider').addEventListener('input', updateHeatmap);
+            // Slider con aggiornamento valori in tempo reale
+            document.getElementById('intensitySlider').addEventListener('input', function() {
+                updateSliderValue('intensityValue', this.value, '');
+                updateHeatmap();
+            });
+            
+            document.getElementById('radiusSlider').addEventListener('input', function() {
+                updateSliderValue('radiusValue', this.value, ' km');
+                updateHeatmap();
+            });
+            
+            document.getElementById('opacitySlider').addEventListener('input', function() {
+                updateSliderValue('opacityValue', Math.round(this.value * 100), '%');
+                updateHeatmap();
+            });
+            
             document.getElementById('mapStyle').addEventListener('change', function() {
                 setMapStyle(this.value);
             });
+        }
+
+        // Aggiornamento valori slider
+        function updateSliderValue(elementId, value, unit) {
+            document.getElementById(elementId).textContent = value + unit;
+        }
+
+        // Inizializzazione valori slider
+        function initializeSliderValues() {
+            updateSliderValue('intensityValue', document.getElementById('intensitySlider').value, '');
+            updateSliderValue('radiusValue', document.getElementById('radiusSlider').value, ' km');
+            updateSliderValue('opacityValue', Math.round(document.getElementById('opacitySlider').value * 100), '%');
         }
 
         // Funzioni controlli
