@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mappa SQM - Inquinamento Luminoso</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid #2a5298;
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo {
+            height: 40px;
+            border-radius: 4px;
+        }
+
+        .header h1 {
+            color: #fff;
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: #fff;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            background: rgba(42, 82, 152, 0.8);
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .nav-link:hover {
+            background: rgba(42, 82, 152, 1);
+            transform: translateY(-1px);
+        }
+
+        #map {
+            width: 100vw;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        .controls {
+            position: fixed;
+            top: 80px;
+            right: 1rem;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1rem;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            min-width: 250px;
+        }
+
+        .controls h3 {
+            color: #fff;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            border-bottom: 1px solid #333;
+            padding-bottom: 0.5rem;
+        }
+
+        .control-group {
+            margin-bottom: 1rem;
+        }
+
+        .control-group label {
+            display: block;
+            color: #ccc;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .control-input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #444;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 0.85rem;
+        }
+
+        .control-input:focus {
+            outline: none;
+            border-color: #2a5298;
+            box-shadow: 0 0 0 2px rgba(42, 82, 152, 0.3);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #2a5298 0%, #1e3c72 100%);
+            color: white;
+            border: none;
+            padding: 0.6rem 1rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(42, 82, 152, 0.4);
+        }
+
+        .btn-small {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+        }
+
+        .legend {
+            position: fixed;
+            bottom: 1rem;
+            left: 1rem;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1rem;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .legend h4 {
+            color: #fff;
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.4rem;
+            font-size: 0.8rem;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 12px;
+            border-radius: 2px;
+            margin-right: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .stats-panel {
+            position: fixed;
+            top: 80px;
+            left: 1rem;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1rem;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            min-width: 200px;
+        }
+
+        .stats-panel h3 {
+            color: #fff;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            border-bottom: 1px solid #333;
+            padding-bottom: 0.5rem;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .stat-label {
+            color: #ccc;
+        }
+
+        .stat-value {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            font-size: 1.2rem;
+            color: #fff;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #2a5298;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .config-warning {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(220, 53, 69, 0.95);
+            color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            z-index: 2000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                position: fixed;
+                bottom: 1rem;
+                top: auto;
+                right: 1rem;
+                left: 1rem;
+                min-width: auto;
+            }
+
+            .stats-panel {
+                display: none;
+            }
+
+            .legend {
+                bottom: 150px;
+            }
+
+            .header h1 {
+                font-size: 1.1rem;
+            }
+
+            .nav-links {
+                gap: 0.5rem;
+            }
+
+            .nav-link {
+                padding: 0.4rem 0.8rem;
+                font-size: 0.8rem;
+            }
+        }
+
+        .toggle-panel {
+            background: rgba(42, 82, 152, 0.8);
+            margin-bottom: 0.5rem;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        Caricamento mappa SQM...
+    </div>
+
+    <!-- Config warning -->
+    <div id="configWarning" class="config-warning hidden">
+        <h3>⚠️ Database Non Configurato</h3>
+        <p>Configura prima il database nella <a href="index.html" style="color: #fff;">pagina principale</a></p>
+    </div>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <img src="logo.png" alt="Logo" class="logo">
+                <h1>🗺️ Mappa SQM Inquinamento Luminoso</h1>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">📝 Database</a>
+                <button class="nav-link btn-small" onclick="refreshData()">🔄 Aggiorna</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Map -->
+    <div id="map"></div>
+
+    <!-- Stats Panel -->
+    <div class="stats-panel" id="statsPanel">
+        <h3>📊 Statistiche</h3>
+        <div class="stat-item">
+            <span class="stat-label">Punti totali:</span>
+            <span class="stat-value" id="totalPoints">0</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">SQM medio:</span>
+            <span class="stat-value" id="avgSqm">0.00</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Miglior SQM:</span>
+            <span class="stat-value" id="bestSqm">0.00</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Peggiore SQM:</span>
+            <span class="stat-value" id="worstSqm">0.00</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Copertura:</span>
+            <span class="stat-value" id="coverage">0 km²</span>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls" id="controlsPanel">
+        <h3>🎨 Controlli Heatmap</h3>
+        
+        <button class="btn toggle-panel" onclick="toggleStatsPanel()">📊 Mostra/Nascondi Stats</button>
+        
+        <div class="control-group">
+            <label>Intensità Heatmap</label>
+            <input type="range" class="control-input" id="intensitySlider" min="0.1" max="2" step="0.1" value="1">
+        </div>
+
+        <div class="control-group">
+            <label>Raggio Influenza (km)</label>
+            <input type="range" class="control-input" id="radiusSlider" min="1" max="50" step="1" value="15">
+        </div>
+
+        <div class="control-group">
+            <label>Opacità Overlay</label>
+            <input type="range" class="control-input" id="opacitySlider" min="0.1" max="1" step="0.1" value="0.7">
+        </div>
+
+        <div class="control-group">
+            <label>Stile Mappa</label>
+            <select class="control-input" id="mapStyle">
+                <option value="osm">OpenStreetMap</option>
+                <option value="satellite">Satellite</option>
+                <option value="dark">Scura</option>
+                <option value="terrain">Terreno</option>
+            </select>
+        </div>
+
+        <button class="btn" onclick="updateHeatmap()">🔄 Aggiorna Heatmap</button>
+        <button class="btn" onclick="fitMapToData()">🎯 Centra sui Dati</button>
+        <button class="btn" onclick="exportHeatmapImage()">📸 Esporta Immagine</button>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+        <h4>🌈 Legenda Qualità Cielo</h4>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #000080;"></div>
+            <span>Eccellente (>21.5 mag/arcsec²)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #0000ff;"></div>
+            <span>Buona (20.0-21.5)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #00ff00;"></div>
+            <span>Mediocre (18.0-20.0)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ffff00;"></div>
+            <span>Scarsa (16.0-18.0)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ff8000;"></div>
+            <span>Pessima (14.0-16.0)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ff0000;"></div>
+            <span>Critica (<14.0)</span>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        // Variabili globali
+        let map;
+        let supabase = null;
+        let sqmData = [];
+        let heatmapLayer = null;
+        let markersLayer = null;
+        let currentTileLayer = null;
+
+        // Configurazione
+        const STORAGE_KEY = 'sqm_supabase_config';
+
+        // Inizializzazione
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            loadSupabaseConfig();
+            setupEventListeners();
+        });
+
+        // Caricamento configurazione Supabase
+        function loadSupabaseConfig() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const config = JSON.parse(saved);
+                if (config.url && config.key) {
+                    initSupabase(config.url, config.key);
+                } else {
+                    showConfigWarning();
+                }
+            } else {
+                showConfigWarning();
+            }
+        }
+
+        // Inizializzazione Supabase
+        function initSupabase(url, key) {
+            try {
+                supabase = window.supabase.createClient(url, key);
+                document.getElementById('configWarning').classList.add('hidden');
+                loadData();
+            } catch (error) {
+                console.error('Errore inizializzazione Supabase:', error);
+                showConfigWarning();
+            }
+        }
+
+        // Mostra avviso configurazione
+        function showConfigWarning() {
+            document.getElementById('configWarning').classList.remove('hidden');
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+
+        // Inizializzazione mappa
+        function initMap() {
+            map = L.map('map', {
+                zoomControl: false
+            }).setView([37.5, 14.0], 8); // Centrata sulla Sicilia
+
+            // Controlli zoom in posizione personalizzata
+            L.control.zoom({
+                position: 'bottomright'
+            }).addTo(map);
+
+            // Layer di default
+            setMapStyle('osm');
+
+            // Layer per markers
+            markersLayer = L.layerGroup().addTo(map);
+        }
+
+        // Impostazione stile mappa
+        function setMapStyle(style) {
+            if (currentTileLayer) {
+                map.removeLayer(currentTileLayer);
+            }
+
+            switch (style) {
+                case 'osm':
+                    currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors'
+                    });
+                    break;
+                case 'satellite':
+                    currentTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                        attribution: '© Esri'
+                    });
+                    break;
+                case 'dark':
+                    currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                        attribution: '© CartoDB'
+                    });
+                    break;
+                case 'terrain':
+                    currentTileLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenTopoMap'
+                    });
+                    break;
+            }
+
+            currentTileLayer.addTo(map);
+        }
+
+        // Caricamento dati
+        async function loadData() {
+            if (!supabase) return;
+
+            try {
+                const { data, error } = await supabase
+                    .from('sqm_measurements')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                sqmData = data || [];
+                updateStats();
+                createHeatmap();
+                createMarkers();
+                
+                if (sqmData.length > 0) {
+                    fitMapToData();
+                }
+
+                document.getElementById('loadingOverlay').classList.add('hidden');
+
+            } catch (error) {
+                console.error('Errore caricamento dati:', error);
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }
+        }
+
+        // Aggiornamento statistiche
+        function updateStats() {
+            if (sqmData.length === 0) return;
+
+            const sqmValues = sqmData.map(d => d.sqm_value);
+            const avgSqm = sqmValues.reduce((a, b) => a + b, 0) / sqmValues.length;
+            const bestSqm = Math.max(...sqmValues);
+            const worstSqm = Math.min(...sqmValues);
+
+            // Calcolo approssimativo della copertura
+            const bounds = getBounds();
+            const coverage = bounds ? calculateArea(bounds) : 0;
+
+            document.getElementById('totalPoints').textContent = sqmData.length;
+            document.getElementById('avgSqm').textContent = avgSqm.toFixed(2);
+            document.getElementById('bestSqm').textContent = bestSqm.toFixed(2);
+            document.getElementById('worstSqm').textContent = worstSqm.toFixed(2);
+            document.getElementById('coverage').textContent = coverage.toFixed(0) + ' km²';
+        }
+
+        // Creazione heatmap
+        function createHeatmap() {
+            if (heatmapLayer) {
+                map.removeLayer(heatmapLayer);
+            }
+
+            if (sqmData.length === 0) return;
+
+            // Creazione di una griglia di punti interpolata
+            const bounds = getBounds();
+            if (!bounds) return;
+
+            const gridSize = 0.01; // Risoluzione griglia (gradi)
+            const intensity = parseFloat(document.getElementById('intensitySlider').value);
+            const radius = parseFloat(document.getElementById('radiusSlider').value);
+            const opacity = parseFloat(document.getElementById('opacitySlider').value);
+
+            // Creazione canvas per heatmap
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            const width = 800;
+            const height = 600;
+            canvas.width = width;
+            canvas.height = height;
+
+            const imageData = ctx.createImageData(width, height);
+            const data = imageData.data;
+
+            // Interpolazione dei valori SQM
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const lat = bounds.north - (y / height) * (bounds.north - bounds.south);
+                    const lng = bounds.west + (x / width) * (bounds.east - bounds.west);
+                    
+                    const sqmValue = interpolateSQM(lat, lng, radius);
+                    const color = getSQMColor(sqmValue, intensity);
+                    
+                    const index = (y * width + x) * 4;
+                    data[index] = color.r;     // Red
+                    data[index + 1] = color.g; // Green
+                    data[index + 2] = color.b; // Blue
+                    data[index + 3] = color.a; // Alpha
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+
+            // Conversione canvas in overlay Leaflet
+            const imageUrl = canvas.toDataURL();
+            heatmapLayer = L.imageOverlay(imageUrl, [
+                [bounds.south, bounds.west],
+                [bounds.north, bounds.east]
+            ], { opacity: opacity }).addTo(map);
+        }
+
+        // Interpolazione valore SQM per una posizione
+        function interpolateSQM(lat, lng, maxDistance) {
+            let weightedSum = 0;
+            let totalWeight = 0;
+
+            for (const point of sqmData) {
+                const distance = getDistance(lat, lng, point.latitude, point.longitude);
+                
+                if (distance < maxDistance) {
+                    const weight = 1 / (1 + distance); // Peso inversamente proporzionale alla distanza
+                    weightedSum += point.sqm_value * weight;
+                    totalWeight += weight;
+                }
+            }
+
+            return totalWeight > 0 ? weightedSum / totalWeight : null;
+        }
+
+        // Calcolo distanza tra due punti (km)
+        function getDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371; // Raggio Terra in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Conversione valore SQM in colore
+        function getSQMColor(sqmValue, intensity) {
+            if (sqmValue === null) {
+                return { r: 0, g: 0, b: 0, a: 0 }; // Trasparente
+            }
+
+            let r, g, b;
+            const alpha = Math.min(255, intensity * 180);
+
+            if (sqmValue >= 21.5) {
+                // Eccellente - Blu scuro
+                r = 0; g = 0; b = 128;
+            } else if (sqmValue >= 20.0) {
+                // Buona - Blu
+                r = 0; g = 0; b = 255;
+            } else if (sqmValue >= 18.0) {
+                // Mediocre - Verde
+                r = 0; g = 255; b = 0;
+            } else if (sqmValue >= 16.0) {
+                // Scarsa - Giallo
+                r = 255; g = 255; b = 0;
+            } else if (sqmValue >= 14.0) {
+                // Pessima - Arancione
+                r = 255; g = 128; b = 0;
+            } else {
+                // Critica - Rosso
+                r = 255; g = 0; b = 0;
+            }
+
+            return { r, g, b, a: alpha };
+        }
+
+        // Creazione markers
+        function createMarkers() {
+            markersLayer.clearLayers();
+
+            sqmData.forEach(measurement => {
+                const marker = L.circleMarker([measurement.latitude, measurement.longitude], {
+                    radius: 6,
+                    fillColor: getMarkerColor(measurement.sqm_value),
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                });
+
+                marker.bindPopup(`
+                    <strong>${measurement.location || 'Posizione'}</strong><br>
+                    <strong>SQM: ${measurement.sqm_value} mag/arcsec²</strong><br>
+                    Qualità: ${getSqmQuality(measurement.sqm_value)}<br>
+                    Collaboratore: ${measurement.collaborator}<br>
+                    Data: ${new Date(measurement.created_at).toLocaleDateString('it-IT')}
+                `);
+
+                markersLayer.addLayer(marker);
+            });
+        }
+
+        // Colore marker basato su SQM
+        function getMarkerColor(value) {
+            if (value >= 21.5) return '#000080';
+            if (value >= 20.0) return '#0000ff';
+            if (value >= 18.0) return '#00ff00';
+            if (value >= 16.0) return '#ffff00';
+            if (value >= 14.0) return '#ff8000';
+            return '#ff0000';
+        }
+
+        // Qualità SQM
+        function getSqmQuality(value) {
+            if (value >= 21.5) return 'Eccellente';
+            if (value >= 20.0) return 'Buona';
+            if (value >= 18.0) return 'Mediocre';
+            if (value >= 16.0) return 'Scarsa';
+            if (value >= 14.0) return 'Pessima';
+            return 'Critica';
+        }
+
+        // Calcolo bounds dei dati
+        function getBounds() {
+            if (sqmData.length === 0) return null;
+
+            const lats = sqmData.map(d => d.latitude);
+            const lngs = sqmData.map(d => d.longitude);
+
+            const padding = 0.1; // Padding in gradi
+            
+            return {
+                north: Math.max(...lats) + padding,
+                south: Math.min(...lats) - padding,
+                east: Math.max(...lngs) + padding,
+                west: Math.min(...lngs) - padding
+            };
+        }
+
+        // Calcolo area approssimativa
+        function calculateArea(bounds) {
+            const width = bounds.east - bounds.west;
+            const height = bounds.north - bounds.south;
+            // Approssimazione: 1 grado ≈ 111 km
+            return width * height * 111 * 111;
+        }
+
+        // Centra mappa sui dati
+        function fitMapToData() {
+            if (sqmData.length === 0) return;
+
+            const bounds = getBounds();
+            if (bounds) {
+                map.fitBounds([
+                    [bounds.south, bounds.west],
+                    [bounds.north, bounds.east]
+                ]);
+            }
+        }
+
+        // Event listeners
+        function setupEventListeners() {
+            document.getElementById('intensitySlider').addEventListener('input', updateHeatmap);
+            document.getElementById('radiusSlider').addEventListener('input', updateHeatmap);
+            document.getElementById('opacitySlider').addEventListener('input', updateHeatmap);
+            document.getElementById('mapStyle').addEventListener('change', function() {
+                setMapStyle(this.value);
+            });
+        }
+
+        // Funzioni controlli
+        function updateHeatmap() {
+            createHeatmap();
+        }
+
+        function refreshData() {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            loadData();
+        }
+
+        function toggleStatsPanel() {
+            const panel = document.getElementById('statsPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function exportHeatmapImage() {
+            // Funzionalità di export (da implementare)
+            alert('Funzionalità di export in sviluppo');
+        }
+    </script>
+</body>
+</html>
