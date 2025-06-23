@@ -779,12 +779,12 @@
 
             sqmData.forEach(measurement => {
                 const marker = L.circleMarker([measurement.latitude, measurement.longitude], {
-                    radius: 6,
+                    radius: 3,  // Ridotto da 6 a 3 (metà dimensione)
                     fillColor: getMarkerColor(measurement.sqm_value),
                     color: '#fff',
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.8
+                    weight: 1,  // Ridotto da 2 a 1 (bordo più sottile)
+                    opacity: 0.8,  // Leggermente più trasparente
+                    fillOpacity: 0.9  // Riempimento più opaco per contrasto
                 });
 
                 marker.bindPopup(`
