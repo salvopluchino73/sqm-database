@@ -387,15 +387,15 @@
     <div class="header">
         <div class="header-content">
             <div class="logo-container">
-                <!-- Sostituisci il src con l'URL del logo della vostra associazione -->
-                <img src="https://via.placeholder.com/120x80/2a5298/ffffff?text=LOGO" alt="Logo Associazione" class="logo" id="associationLogo">
+                <!-- MODIFICA QUI: Sostituisci con il nome del tuo file logo caricato su GitHub -->
+                <img src="logo.png" alt="Logo Associazione" class="logo" id="associationLogo">
             </div>
             <div class="header-text">
-                <!-- Personalizza questi testi con i vostri -->
-                <h1 id="pageTitle">🌌 Database SQM - Inquinamento Luminoso</h1>
-                <p id="pageDescription">Sistema collaborativo per il monitoraggio della qualità del cielo notturno</p>
+                <!-- MODIFICA QUI: Personalizza questi testi una volta per tutti -->
+                <h1 id="pageTitle">🌌 Progetto SQM Sicilia</h1>
+                <p id="pageDescription">Censimento dell'inquinamento luminoso della Sicilia orientale</p>
                 <div class="header-note" id="associationNote">
-                    Un progetto di [Nome della Vostra Associazione]
+                    Un progetto del Gruppo Astrofili Catania
                 </div>
             </div>
         </div>
@@ -412,7 +412,6 @@
             <button class="tab" onclick="switchTab('map')">🗺️ Mappa</button>
             <button class="tab" onclick="switchTab('data')">📊 Dati</button>
             <button class="tab" onclick="switchTab('config')">⚙️ Configurazione</button>
-            <button class="tab" onclick="switchTab('customize')">🎨 Personalizza</button>
         </div>
 
         <!-- Tab Personalizzazione -->
@@ -599,12 +598,10 @@
 
         // Configurazione Supabase
         const STORAGE_KEY = 'sqm_supabase_config';
-        const CUSTOM_STORAGE_KEY = 'sqm_customization';
 
         // Inizializzazione
         document.addEventListener('DOMContentLoaded', function() {
             loadSupabaseConfig();
-            loadCustomization();
             updateStats();
             updateDataTable();
         });
@@ -973,129 +970,6 @@
             link.click();
             document.body.removeChild(link);
         }
-
-        // Funzioni di personalizzazione
-        function loadCustomization() {
-            const saved = localStorage.getItem(CUSTOM_STORAGE_KEY);
-            if (saved) {
-                const custom = JSON.parse(saved);
-                
-                // Applica personalizzazione
-                if (custom.title) {
-                    const emoji = custom.emoji || '🌌';
-                    document.getElementById('pageTitle').textContent = `${emoji} ${custom.title}`;
-                    document.getElementById('customTitle').value = custom.title;
-                }
-                
-                if (custom.description) {
-                    document.getElementById('pageDescription').textContent = custom.description;
-                    document.getElementById('customDescription').value = custom.description;
-                }
-                
-                if (custom.association) {
-                    document.getElementById('associationNote').textContent = `Un progetto di ${custom.association}`;
-                    document.getElementById('customAssociation').value = custom.association;
-                }
-                
-                if (custom.logo) {
-                    document.getElementById('associationLogo').src = custom.logo;
-                    document.getElementById('customLogo').value = custom.logo;
-                }
-                
-                if (custom.emoji) {
-                    document.getElementById('customEmoji').value = custom.emoji;
-                }
-                
-                updateCustomPreview();
-            }
-        }
-
-        function saveCustomization() {
-            const custom = {
-                title: document.getElementById('customTitle').value.trim(),
-                description: document.getElementById('customDescription').value.trim(),
-                association: document.getElementById('customAssociation').value.trim(),
-                logo: document.getElementById('customLogo').value.trim(),
-                emoji: document.getElementById('customEmoji').value.trim() || '🌌'
-            };
-
-            // Validazione base
-            if (!custom.title) {
-                showError('Inserisci almeno il titolo');
-                return;
-            }
-
-            localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(custom));
-            
-            // Applica modifiche immediatamente
-            document.getElementById('pageTitle').textContent = `${custom.emoji} ${custom.title}`;
-            
-            if (custom.description) {
-                document.getElementById('pageDescription').textContent = custom.description;
-            }
-            
-            if (custom.association) {
-                document.getElementById('associationNote').textContent = `Un progetto di ${custom.association}`;
-            }
-            
-            if (custom.logo) {
-                document.getElementById('associationLogo').src = custom.logo;
-            }
-            
-            updateCustomPreview();
-            showSuccess('Personalizzazione salvata! Ricarica la pagina per vedere tutte le modifiche.');
-        }
-
-        function resetCustomization() {
-            localStorage.removeItem(CUSTOM_STORAGE_KEY);
-            
-            // Ripristina valori default
-            document.getElementById('pageTitle').textContent = '🌌 Database SQM - Inquinamento Luminoso';
-            document.getElementById('pageDescription').textContent = 'Sistema collaborativo per il monitoraggio della qualità del cielo notturno';
-            document.getElementById('associationNote').textContent = 'Un progetto di [Nome della Vostra Associazione]';
-            document.getElementById('associationLogo').src = 'https://via.placeholder.com/120x80/2a5298/ffffff?text=LOGO';
-            
-            // Pulisci form
-            document.getElementById('customTitle').value = '';
-            document.getElementById('customDescription').value = '';
-            document.getElementById('customAssociation').value = '';
-            document.getElementById('customLogo').value = '';
-            document.getElementById('customEmoji').value = '';
-            
-            updateCustomPreview();
-            showSuccess('Personalizzazione ripristinata ai valori default');
-        }
-
-        function updateCustomPreview() {
-            const title = document.getElementById('customTitle').value.trim();
-            const description = document.getElementById('customDescription').value.trim();
-            const association = document.getElementById('customAssociation').value.trim();
-            const emoji = document.getElementById('customEmoji').value.trim() || '🌌';
-            
-            let preview = '';
-            if (title) {
-                preview += `<strong>${emoji} ${title}</strong><br>`;
-            }
-            if (description) {
-                preview += `${description}<br>`;
-            }
-            if (association) {
-                preview += `<em>Un progetto di ${association}</em>`;
-            }
-            
-            if (!preview) {
-                preview = 'Compila i campi sopra per vedere l\'anteprima';
-            }
-            
-            document.getElementById('customPreview').innerHTML = preview;
-        }
-
-        // Event listeners per anteprima in tempo reale
-        document.addEventListener('DOMContentLoaded', function() {
-            ['customTitle', 'customDescription', 'customAssociation', 'customEmoji'].forEach(id => {
-                document.getElementById(id).addEventListener('input', updateCustomPreview);
-            });
-        });
     </script>
 </body>
 </html>
